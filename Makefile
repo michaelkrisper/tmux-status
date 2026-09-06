@@ -8,6 +8,7 @@ tmux-status: tmux-status.c
 # nicht von selbst neu -- darum nach dem Kopieren beenden, tmux respawnt.
 install: tmux-status
 	install -Dm755 tmux-status $(PREFIX)/bin/tmux-status
+	install -Dm755 tmux-cycle-view $(PREFIX)/bin/tmux-cycle-view
 	-pkill -x tmux-status
 
 clean:
