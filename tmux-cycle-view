@@ -11,11 +11,16 @@
 # eine fremde Session leer.
 set -eu
 
-# --next schaltet nur weiter (Fenster, bzw. Pane wenn alles zusammengeholt
-# ist). Steckt hier mit drin, weil es dieselbe Frage beantworten muss: welche
+# Ohne Schalter: Ansichtsmodus weiterdrehen.
+#   --next  nur weiterschalten (Fenster, bzw. Pane wenn zusammengeholt)
+#   --new   ein Terminal dazu -- als Fenster im Tab-Modus, sonst als Pane
+# Alle drei stecken hier, weil sie dieselbe Frage beantworten muessen: welche
 # Session sieht der User gerade an?
-next=0
-if [ "${1:-}" = "--next" ]; then next=1; shift; fi
+action=cycle
+case "${1:-}" in
+    --next) action=next; shift ;;
+    --new)  action=new;  shift ;;
+esac
 
 # Entprellung. Die Taste kommt gelegentlich zweimal an -- je nach Ursache als
 # Wiederholung beim Halten oder als zweites Event eines parallelen Geraets
@@ -45,8 +50,10 @@ fi
 # Mehr als ein Fenster heisst Tab-Modus, egal was zuletzt gemerkt wurde --
 # der User kann jederzeit von Hand Fenster aufmachen.
 windows=$(tmux list-windows -t "$win" -F x | wc -l)
+mode=$(tmux show-options -qv -t "$win" @viewmode || true)
+[ "$windows" -gt 1 ] && mode=tabs
 
-if [ "$next" = 1 ]; then
+if [ "$action" = next ]; then
     if [ "$windows" -gt 1 ]; then
         tmux next-window -t "$win"
     else
@@ -55,8 +62,24 @@ if [ "$next" = 1 ]; then
     exit 0
 fi
 
-mode=$(tmux show-options -qv -t "$win" @viewmode || true)
-[ "$windows" -gt 1 ] && mode=tabs
+# Ein neues Terminal muss dorthin, wo die Ansicht gerade ist: im Tab-Modus als
+# eigenes Fenster, sonst als Pane -- sonst liegt es ausserhalb des Layouts und
+# kippt die Ansicht nebenbei zurueck in den Tab-Modus.
+if [ "$action" = new ]; then
+    case "$mode" in
+        horizontal|tiled)
+            if [ "$mode" = horizontal ]; then lay=even-horizontal; else lay=tiled; fi
+            tmux split-window -t "$win" -c '#{pane_current_path}'
+            tmux select-layout -t "$win" "$lay"
+            ;;
+        *)
+            # -a: hinter das aktuelle Fenster. Ohne das liest tmux das Ziel als
+            # Position und bricht mit "index in use" ab.
+            tmux new-window -a -t "$win" -c '#{pane_current_path}'
+            ;;
+    esac
+    exit 0
+fi
 
 gather() {
     tmux list-windows -t "$win" -F '#{window_id}' | grep -vx "$win" | while read -r w; do
