@@ -41,6 +41,19 @@ static void putnum(long v, int pad) {
     while (i-- > 0 && olen < (int)sizeof out - 1) out[olen++] = tmp[i];
 }
 
+// Feste Feldbreite, damit die Leiste nicht springt. Aufgefuellt wird VOR dem
+// Symbol: die Zahl bleibt am Symbol kleben, die rechte Kante jedes Feldes und
+// damit die Gesamtlaenge stehen still.
+static int digits(long v) {
+    int d = 1;
+    while (v >= 10) { v /= 10; d++; }
+    return d;
+}
+
+static void pad(int n) { while (n-- > 0) put(" "); }
+
+static void padnum(long v, int width) { pad(width - digits(v)); }
+
 static int slurp(const char *path, char *b, int cap) {
     int fd = open(path, O_RDONLY | O_CLOEXEC);
     if (fd < 0) return 0;
@@ -117,6 +130,11 @@ static long rate(unsigned long now, unsigned long prev, long secs) {
 // feiner aufzuloesen bringt nichts.
 // Mbit ist dezimal (1e6 bit), wie bei Leitungsangaben ueblich:
 // Bytes/s * 8 / 1e6, in Zehnteln also Bytes/s / 12500.
+// Breite des Ganzzahlteils, damit der Aufrufer vor dem Pfeil auffuellen kann
+static int ratewidth(long bps) {
+    return bps < 0 ? 2 : digits(bps / 125000);
+}
+
 static void putrate(long bps) {
     if (bps < 0) { put("--.-Mbit"); return; }
     long tenths = bps / 12500;
@@ -174,12 +192,14 @@ static long as_uW(const char *energy, const char *charge) {
 
 static void render(long cpu, long rxr, long txr) {
     olen = 0;
+    pad(cpu < 0 ? 1 : 3 - digits(cpu));
     put(cpu >= 70 ? "#[fg=#f38ba8]" : "#[fg=#89b4fa]");
     put("");
     if (cpu < 0) put("--"); else putnum(cpu, 0);
     put("%#[fg=#cdd6f4] ");
+    pad(3 - ratewidth(rxr));
     put("#[fg=#94e2d5]↓"); putrate(rxr);
-    put(" ↑"); putrate(txr);
+    put(" "); pad(3 - ratewidth(txr)); put("↑"); putrate(txr);
     put("#[fg=#cdd6f4] ");
     long cap = num(BATDIR "capacity");
     char st[32];
@@ -193,6 +213,7 @@ static void render(long cpu, long rxr, long txr) {
         long rest = dis ? en : ef - en;
         long avg = smooth_power(pw, dis);
 
+        padnum(cap, 3);
         put(dis && cap <= 15 ? "#[fg=#f38ba8]" : dis && cap <= 30 ? "#[fg=#fab387]" : "#[fg=#a6e3a1]");
         put(dis ? "󰁹" : "󰂄");
         putnum(cap, 0); put("%");
@@ -202,9 +223,15 @@ static void render(long cpu, long rxr, long txr) {
         if (avg > 0 && rest > 0) {
             long m = (rest * 60 / avg + 2) / 5 * 5;
             put(" "); putnum(m / 60, 0); put(":"); putnum(m % 60, 2); put("h");
+        } else {
+            pad(6);                                 // Feld bleibt reserviert
         }
+        // Leistung " NNW" = 4 Zeichen, gerundet statt abgeschnitten
         if (pw > 0) {
-            put(" "); putnum(pw / 1000000, 0); put("."); putnum((pw % 1000000) / 100000, 0); put("W");
+            long w = (pw + 500000) / 1000000;
+            put(" "); padnum(w, 2); putnum(w, 0); put("W");
+        } else {
+            pad(4);
         }
         put("#[fg=#cdd6f4] ");
     }
