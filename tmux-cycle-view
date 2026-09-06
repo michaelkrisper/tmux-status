@@ -11,6 +11,12 @@
 # eine fremde Session leer.
 set -eu
 
+# --next schaltet nur weiter (Fenster, bzw. Pane wenn alles zusammengeholt
+# ist). Steckt hier mit drin, weil es dieselbe Frage beantworten muss: welche
+# Session sieht der User gerade an?
+next=0
+if [ "${1:-}" = "--next" ]; then next=1; shift; fi
+
 win=${1:-}
 if [ -z "$win" ]; then
     # Die Session des zuletzt aktiven angehaengten Clients -- das ist die,
@@ -27,6 +33,16 @@ fi
 # Mehr als ein Fenster heisst Tab-Modus, egal was zuletzt gemerkt wurde --
 # der User kann jederzeit von Hand Fenster aufmachen.
 windows=$(tmux list-windows -t "$win" -F x | wc -l)
+
+if [ "$next" = 1 ]; then
+    if [ "$windows" -gt 1 ]; then
+        tmux next-window -t "$win"
+    else
+        tmux select-pane -t "$win.+"
+    fi
+    exit 0
+fi
+
 mode=$(tmux show-options -qv -t "$win" @viewmode || true)
 [ "$windows" -gt 1 ] && mode=tabs
 
