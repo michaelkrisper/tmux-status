@@ -38,7 +38,22 @@ set -g status-right "#(~/.local/bin/tmux-status --loop 5) %H:%M "
 ```
 
 `tmux.conf` in this repo is the full config the screenshot line comes from,
-including the Catppuccin styling around it.
+including the Catppuccin styling around it. `sway.config` is the compositor
+side of the same setup — it binds the MacBook's F3 special key, which sends
+`KEY_SCALE` and so never reaches the terminal at all, to `tmux-cycle-view`.
+
+## View cycle
+
+`tmux-cycle-view` cycles a session between three arrangements: every terminal
+side by side, the same panes tiled, and one window per terminal. `--next` steps
+to the next window, or to the next pane once everything is gathered. Bound to
+`prefix + Space` and, through sway, to the F3 key with and without Ctrl.
+
+Called without a window id it has no tmux context to work from, so it resolves
+the session over `#{client_session}` from `list-clients`. Neither a bare
+`display -p` nor `display -p -c <client>` reports the session a client is
+actually looking at — both answer with the most recently used one, which is a
+different session more often than it sounds.
 
 `--loop [seconds]` is the intended mode: tmux starts a `#()` job once and reads
 lines from it for as long as the process lives, which avoids a fork/exec per
