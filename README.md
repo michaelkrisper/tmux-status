@@ -37,6 +37,9 @@ set -g status-right-length 90
 set -g status-right "#(~/.local/bin/tmux-status --loop 5) %H:%M "
 ```
 
+`tmux.conf` in this repo is the full config the screenshot line comes from,
+including the Catppuccin styling around it.
+
 `--loop [seconds]` is the intended mode: tmux starts a `#()` job once and reads
 lines from it for as long as the process lives, which avoids a fork/exec per
 tick — at roughly 1 ms that was by far the largest cost. The program exits by
