@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# system-sleep Hook: bei "post" (Resume) einen kurzen CPU-Boost im Hintergrund
+# anstoßen. systemd-run -> nicht-blockierend, der Resume selbst wird nicht verzögert.
+case "$1" in
+    post)
+        systemd-run --quiet --collect \
+            --unit=resume-cpu-boost \
+            --description="Kurzer CPU-Boost nach Resume" \
+            /usr/local/sbin/resume-cpu-boost.sh
+        ;;
+esac

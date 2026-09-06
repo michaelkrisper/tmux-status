@@ -1,0 +1,21 @@
+[Unit]
+Description=CPU-Politik setzen (ersetzt den auto-cpufreq-Daemon)
+After=multi-user.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+# Governor: powersave regelt auf intel_pstate lastabhaengig selbst.
+ExecStart=/bin/sh -c 'for g in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do echo powersave > $g; done'
+# Turbo AN: hebt nur die Obergrenze unter Last (2400 -> 2900 MHz), im Leerlauf
+# sitzt die CPU unveraendert bei 800 MHz in C9/C10. Bei langen Volllastlaeufen
+# bewusst abschalten.
+ExecStart=/bin/sh -c 'echo 0 > /sys/devices/system/cpu/intel_pstate/no_turbo'
+# Energy Performance Bias auf 15 (sparsamster Wert). Stand fruher in der
+# separaten cpu-powersave.service -- die ist am 2026-08-31 abgeschaltet worden,
+# weil sie zusaetzlich no_turbo=1 setzte und damit dieser Unit widersprach.
+# Wer von beiden gewann, haing an der Startreihenfolge.
+ExecStart=/bin/sh -c 'for b in /sys/devices/system/cpu/cpu*/power/energy_perf_bias; do echo 15 > $b; done'
+
+[Install]
+WantedBy=multi-user.target

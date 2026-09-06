@@ -1,0 +1,10 @@
+[Unit]
+Description=Täglicher Lauf von auto-update.service
+
+[Timer]
+OnCalendar=*-*-* 12:00
+RandomizedDelaySec=30m
+Persistent=true
+
+[Install]
+WantedBy=timers.target

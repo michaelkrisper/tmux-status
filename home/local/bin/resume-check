@@ -1,0 +1,100 @@
+#!/usr/bin/env python3
+"""Wertet den letzten Suspend/Resume-Zyklus aus dem Journal aus.
+
+Rechnet konsequent in monotoner Zeit -- die Realtime-Uhr ist ueber einen
+Suspend hinweg nicht zu gebrauchen (chronyd korrigiert beim Resume, die RTC
+des MacBook laeuft daneben).
+"""
+import json
+import re
+import subprocess
+import sys
+
+DEV = sys.argv[1] if len(sys.argv) > 1 else "wlp3s0"
+
+
+def journal(*args):
+    out = subprocess.run(
+        ["journalctl", "-b", "-o", "json", "--no-pager", *args],
+        capture_output=True, text=True,
+    ).stdout
+    for line in out.splitlines():
+        try:
+            d = json.loads(line)
+        except ValueError:
+            continue
+        msg = d.get("MESSAGE", "")
+        if not isinstance(msg, str):
+            continue
+        # _SOURCE_MONOTONIC_TIMESTAMP ist die Uhr des Kernels selbst,
+        # __MONOTONIC_TIMESTAMP die von journald beim Einlesen.
+        src = d.get("_SOURCE_MONOTONIC_TIMESTAMP")
+        mon = d.get("__MONOTONIC_TIMESTAMP")
+        yield {
+            "src": int(src) / 1e6 if src else None,
+            "mon": int(mon) / 1e6 if mon else None,
+            "id": d.get("SYSLOG_IDENTIFIER", "?"),
+            "msg": msg,
+        }
+
+
+events = list(journal())
+exits = [e for e in events if e["msg"] == "PM: suspend exit"]
+if not exits:
+    sys.exit("Kein Resume in diesem Boot gefunden.")
+
+t0 = exits[-1]["mon"]
+entries = [e for e in events
+           if e["msg"].startswith("PM: suspend entry") and e["mon"] < t0]
+
+print(f"=== Resume bei monotonic {t0:.3f} ===\n")
+
+if entries:
+    print(f"Zyklus: {t0 - entries[-1]['mon']:.1f} s zwischen 'suspend entry' und "
+          f"'suspend exit' (enthaelt die Schlafzeit)\n")
+
+# Was der Kernel selbst gemessen hat -- diese Zahlen sind belastbar,
+# anders als Differenzen von Zeitstempeln ueber die Schlafluecke hinweg.
+print("--- Kernel, selbst gemessen ---")
+window = [e for e in events if entries and entries[-1]["mon"] <= e["mon"] <= t0 + 1]
+for pat in (r"suspend devices took", r"resume devices took", r"Filesystems sync"):
+    for e in window:
+        if re.search(pat, e["msg"]):
+            print(f"  {e['msg']}")
+
+# Pro-Geraet-Zeiten, falls /sys/power/pm_print_times aktiv war
+slow = []
+for e in window:
+    m = re.search(r"(\S+): PM: (\S+) returned 0 after (\d+) usecs", e["msg"])
+    if m and int(m.group(3)) > 50000:
+        slow.append((int(m.group(3)) / 1e6, f"{m.group(1)} {m.group(2)}"))
+if slow:
+    print("\n--- Langsamste Geraete (>50 ms) ---")
+    for secs, dev in sorted(slow, reverse=True)[:12]:
+        print(f"  {secs:6.3f} s  {dev}")
+else:
+    print("\n  (keine Pro-Geraet-Zeiten -- 'echo 1 | sudo tee /sys/power/pm_print_times')")
+
+# Userspace nach dem Resume
+print("\n--- Nach dem Resume ---")
+interesting = re.compile(
+    r"state change:|auto-activating|Trying to associate|Associated with|"
+    r"CTRL-EVENT-CONNECTED|supplicant interface state:|"
+    r"resyncing variable state|thawed|resume-cpu-boost")
+last = None
+for e in sorted((x for x in events if t0 - 0.1 <= x["mon"] <= t0 + 30),
+                key=lambda x: x["mon"]):
+    if not interesting.search(e["msg"]):
+        continue
+    d = e["mon"] - t0
+    gap = f"  <-- {d - last:.2f} s Stille" if last is not None and d - last > 0.5 else ""
+    print(f"{d:+7.3f} {e['id']:14.14s} {e['msg'][:78]}{gap}")
+    last = d
+
+act = [e for e in events
+       if e["mon"] > t0 and f"device ({DEV})" in e["msg"] and "-> activated" in e["msg"]]
+print()
+if act:
+    print(f"WLAN ({DEV}) verbunden: {act[0]['mon'] - t0:.2f} s nach Resume")
+else:
+    print(f"WLAN ({DEV}): kein 'activated' seit dem Resume")

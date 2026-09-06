@@ -1,0 +1,11 @@
+[Unit]
+Description=Tägliches Voll-Update (dnf, flatpak, npm, rustup, cargo)
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/auto-update.sh
+Nice=19
+IOSchedulingClass=idle
+TimeoutStartSec=2h

@@ -1,0 +1,66 @@
+# .bashrc
+
+# Source global definitions
+if [ -f /etc/bashrc ]; then
+    . /etc/bashrc
+fi
+
+# User specific environment
+if ! [[ "$PATH" =~ "$HOME/.local/bin:$HOME/bin:" ]]; then
+    PATH="$HOME/.local/bin:$HOME/bin:$PATH"
+fi
+export PATH
+
+# Uncomment the following line if you don't like systemctl's auto-paging feature:
+# export SYSTEMD_PAGER=
+
+# User specific aliases and functions
+if [ -d ~/.bashrc.d ]; then
+    for rc in ~/.bashrc.d/*; do
+        if [ -f "$rc" ]; then
+            . "$rc"
+        fi
+    done
+fi
+unset rc
+
+
+# Added by Antigravity CLI installer
+export PATH="/home/michi/.local/bin:$PATH"
+
+# Low-priority test runner
+alias run-tests="nice -n 19 ionice -c 3 pytest -n 2"
+. "$HOME/.cargo/env"
+
+# JDK for Gradle/DrillDown builds
+export JAVA_HOME="$HOME/.jdks/jdk-21.0.11+10"
+export PATH="$JAVA_HOME/bin:$PATH"
+
+export ANDROID_HOME="$HOME/Android/Sdk"
+export PATH="$ANDROID_HOME/platform-tools:$PATH"
+
+export DOTNET_ROOT="$HOME/.dotnet"
+export PATH="$HOME/.dotnet:$PATH"
+
+# The next line updates PATH for the Google Cloud SDK.
+if [ -f '/home/michi/.local/share/google-cloud-sdk/path.bash.inc' ]; then . '/home/michi/.local/share/google-cloud-sdk/path.bash.inc'; fi
+
+# The next line enables shell command completion for gcloud.
+if [ -f '/home/michi/.local/share/google-cloud-sdk/completion.bash.inc' ]; then . '/home/michi/.local/share/google-cloud-sdk/completion.bash.inc'; fi
+
+# --- fzf -------------------------------------------------------------------
+# Alt-C   in einen Unterordner wechseln (Volltextsuche)
+# Ctrl-R  Kommandohistorie durchsuchen
+# Ctrl-F  Dateipfad in die Zeile einfuegen
+# Ctrl-T waere fzfs Vorgabe fuer das letzte, das faengt aber tmux fuer neue
+# Fenster ab und kommt hier nie an -- deshalb Ctrl-F.
+if command -v fzf >/dev/null; then
+    eval "$(fzf --bash)"
+    bind -m emacs-standard -x '"\C-f": fzf-file-widget'
+    # fd statt find: schneller und ueberspringt .gitignore von selbst
+    export FZF_ALT_C_COMMAND='fd --type d --hidden --exclude .git --exclude node_modules'
+    export FZF_CTRL_T_COMMAND='fd --type f --hidden --exclude .git --exclude node_modules'
+    export FZF_DEFAULT_OPTS='--height=60% --layout=reverse --border --info=inline'
+    export FZF_ALT_C_OPTS='--preview "ls -1 --color=always {} | head -60"'
+    export FZF_CTRL_T_OPTS='--preview "bat --style=numbers --color=always --line-range=:60 {} 2>/dev/null || ls -la {}"'
+fi

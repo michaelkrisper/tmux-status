@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# Die FaceTime-Kamera vor dem Suspend nach D3hot schreiben.
+#
+# \_PTS in der Apple-Firmware wartet mit acpi_osi=!Darwin bis zu 5000 x 1 ms
+# darauf, dass \_SB.PCI0.RP02.CMRA.DPST den Wert 3 meldet. DPST ist das
+# PowerState-Feld im PMCSR der Kamera, PCI-Config-Offset 0x4C, 2 Bit breit.
+# Die Kamera hat keinen Treiber (facetimehd ist blacklisted), also legt sie
+# niemand schlafen und die Schleife laeuft immer voll durch -- 9,6 s pro
+# Suspend (gemessen 2026-08-31). Steht sie schon auf D3, bricht die Schleife
+# beim ersten Test ab.
+#
+# Bit 3 (0x08, NO_SOFT_RESET) bleibt erhalten, deshalb 0x0b und nicht 0x03.
+DEV=0000:02:00.0
+[ "$1" = "pre" ] || exit 0
+[ -e "/sys/bus/pci/devices/$DEV" ] || exit 0
+cur=$(/usr/bin/setpci -s "${DEV#0000:}" 4c.b 2>/dev/null) || exit 0
+/usr/bin/setpci -s "${DEV#0000:}" 4c.b=$(printf '%02x' $(( 0x$cur | 0x03 )))
+logger "camera-d3: PMCSR 0x$cur -> 0x$(/usr/bin/setpci -s "${DEV#0000:}" 4c.b)"

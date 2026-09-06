@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+# Startet einmalig eine Plasma-Wayland-Session vom TTY aus
+exec startplasma-wayland

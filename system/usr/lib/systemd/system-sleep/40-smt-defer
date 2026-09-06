@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+# SMT ueber den Suspend hinweg abschalten.
+#
+# cpu2 und cpu3 sind die HyperThreading-Zwillinge von cpu0 und cpu1. Sie im
+# Resume-Pfad hochzufahren kostet ~2,3 s: der Kernel macht das synchron in
+# suspend_enable_secondary_cpus(), bevor er weitermacht, und die einzelnen
+# cpuhp-Callbacks (cacheinfo_cpu_online, sched_cpu_activate, ...) warten dort
+# jeweils hunderte Millisekunden -- vermutlich auf RCU-Grace-Periods, solange
+# kaum CPUs online sind.
+#
+# Im laufenden System kostet derselbe Vorgang fast nichts: aus 131 ms, an 51 ms
+# (gemessen 2026-08-31). Also vorher aus, nachher im Hintergrund wieder an --
+# statt SMT per nosmt dauerhaft zu opfern.
+case "$1" in
+    pre)
+        echo off > /sys/devices/system/cpu/smt/control
+        ;;
+    post)
+        # via systemd-run, damit der Resume nicht darauf wartet und der Prozess
+        # nicht mit systemd-suspend.service abgeraeumt wird.
+        systemd-run --quiet --collect \
+            --unit=smt-restore \
+            --description="HyperThreading nach Resume wieder aktivieren" \
+            /bin/sh -c 'echo on > /sys/devices/system/cpu/smt/control; logger "smt-defer: SMT wieder an ($(cat /sys/devices/system/cpu/online))"'
+        ;;
+esac

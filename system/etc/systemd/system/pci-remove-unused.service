@@ -1,0 +1,25 @@
+[Unit]
+Description=Ungenutzte PCI-Geraete entfernen (Thunderbolt, Audio, Kamera)
+# Diese Geraete haben keinen Treiber (Module sind per blacklist aus), bleiben
+# aber im PCI-Baum und haengen dort in D0 -- sie ziehen Strom, ohne etwas zu
+# tun, und werden bei jedem Suspend mitgenommen.
+#
+#   05:00.0  Thunderbolt-2-Bridge (DSL5520), zieht den ganzen Baum 06-9b mit.
+#            Kostete gemessen ~510 ms pro Suspend-Zyklus (2026-08-31).
+#   00:03.0  HDMI-Audio      \ snd_hda_intel ist blacklisted, im Suspend
+#   00:1b.0  HD-Audio        / kosten sie nur ~0,2 ms -- hier geht es um D0.
+#   02:00.0  FaceTime-Kamera, facetimehd ist blacklisted.
+#
+# Nicht anfassen: 03:00.0 (WLAN, unter Root-Port 00:1c.2) und 00:14.0 (xHCI --
+# daran haengen interne Tastatur und Trackpad).
+DefaultDependencies=no
+After=sysinit.target
+Before=basic.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/sbin/pci-remove-unused.sh
+
+[Install]
+WantedBy=basic.target

@@ -8,7 +8,7 @@
 // Hiess bis 2026-09-06 idle-dim, weil es mit dem Abdimmen angefangen hat --
 // das ist laengst der kleinere Teil.
 //
-// build: gcc -O2 -o /usr/local/sbin/specialkeysd ~/.local/src/specialkeysd.c
+// build: make specialkeysd && make install-daemon   (siehe README)
 // Laeuft als System-Dienst, weil nur root sowohl /dev/input/* lesen als auch
 // /sys/class/backlight schreiben darf.
 #define _GNU_SOURCE

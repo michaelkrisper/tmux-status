@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# bootmode [tty|kde|status] - schaltet das Standard-Boot-Ziel um
+case "${1:-status}" in
+  tty) sudo systemctl set-default multi-user.target ;;
+  kde) sudo systemctl set-default graphical.target ;;
+  status|"") ;;
+  *) echo "usage: bootmode [tty|kde|status]" >&2; exit 1 ;;
+esac
+t=$(systemctl get-default)
+[ "$t" = "multi-user.target" ] && echo "boot: TTY (multi-user.target)" || echo "boot: KDE ($t)"
