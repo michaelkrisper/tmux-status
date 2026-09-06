@@ -1,0 +1,11 @@
+[Unit]
+Description=Sondertasten bedienen und bei Inaktivitaet abdimmen (Ersatz fuer powerdevil/kglobalaccel im TTY-Kiosk)
+
+[Service]
+ExecStart=/usr/local/sbin/specialkeysd 300 600
+Restart=always
+RestartSec=5
+Nice=10
+
+[Install]
+WantedBy=multi-user.target

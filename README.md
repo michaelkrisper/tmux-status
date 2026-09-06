@@ -70,6 +70,24 @@ The battery path can be overridden at build time:
 make CFLAGS='-O2 -DBATDIR=\"/sys/class/power_supply/BAT1/\"'
 ```
 
+## specialkeysd
+
+Booting into a bare sway session means nothing handles the laptop's special
+keys any more — powerdevil and kglobalaccel used to. `specialkeysd` takes over:
+display and keyboard brightness, dimming after an idle timeout, and the
+Exposé/Dashboard keys, which drive the tmux view above. It reads `/dev/input`
+directly and writes `/sys/class/backlight`, so it runs as root via
+`specialkeysd.service` and drops to the desktop user to talk to tmux.
+
+```sh
+make install-daemon       # -> /usr/local/sbin, needs sudo
+```
+
+Keys must be handled in exactly one place. Binding one of them in the
+compositor as well means two actions per press — the config comments in
+`sway.config` record both times that happened, once for brightness and once
+for Exposé.
+
 ## Notes
 
 The glyphs (, 󰁹, 󰂄) come from a Nerd Font — the status line needs one to
