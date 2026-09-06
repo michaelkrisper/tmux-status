@@ -22,6 +22,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 #include <time.h>
 #include <unistd.h>
 
@@ -48,9 +49,16 @@
 #define STEPMS 120                   // Entprellung: Video-Bus *und* Tastatur
 #define CYCLE "/home/michi/.local/bin/tmux-cycle-view"
                                      // melden denselben Tastendruck
+#define WAKE "/run/user/%u/specialkeysd-wake"
+                                     // Wer ohne Eingabegeraet schreibt -- das
+                                     // Diktat von m5assistant tippt per
+                                     // "tmux send-keys" direkt in den Puffer --
+                                     // faesst diese Datei an und gilt damit als
+                                     // Aktivitaet. Im Laufzeitverzeichnis des
+                                     // Kioskusers, damit er ohne Rechte drankommt.
 
-static int idle_bat = 300;           // Timeout auf Akku
-static int idle_ac  = 600;           // Timeout am Netzteil
+static int idle_bat = 1800;          // Timeout auf Akku
+static int idle_ac  = 3600;          // Timeout am Netzteil
 
 // Feste Stufen in Promille, unten fein und oben grob: der Wert steuert die
 // PWM-Einschaltdauer, und die Wahrnehmung ist ungefaehr die vierte Wurzel
@@ -103,6 +111,11 @@ static void wr(const char *p, long v) {
     if (fd < 0) return;
     ssize_t ig = write(fd, b, (size_t)n); (void)ig;
     close(fd);
+}
+
+static long wake_stamp(const char *p) {
+    struct stat st;
+    return stat(p, &st) == 0 ? (long)st.st_mtime : 0;
 }
 
 // Promille-Stufe -> Rohwert des Geraets
@@ -172,6 +185,10 @@ int main(int argc, char **argv) {
         u_uid = pw->pw_uid; u_gid = pw->pw_gid;
         u_name = strdup(pw->pw_name); u_home = strdup(pw->pw_dir);
     }
+
+    char wake[64] = "";
+    if (u_home) snprintf(wake, sizeof wake, WAKE, (unsigned)u_uid);
+    long wakeseen = wake_stamp(wake);
 
     struct pollfd fds[MAXFD]; char names[MAXFD][64];
     int have = scan(fds, names, 0);
@@ -263,6 +280,16 @@ int main(int argc, char **argv) {
 
 idle_check:
         if (now - lastscan >= RESCAN) { have = scan(fds, names, have); lastscan = now; }
+
+        long wm = *wake ? wake_stamp(wake) : 0;
+        if (wm && wm != wakeseen) {
+            wakeseen = wm; last = now;
+            if (dimmed) {
+                if (saved   > 0) wr(BL, saved);
+                if (savedkb > 0) wr(KB, savedkb);
+                dimmed = 0;
+            }
+        }
 
         if (!dimmed) {
             int ac = rd(ACPATH) == 1;

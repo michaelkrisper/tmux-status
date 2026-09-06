@@ -91,6 +91,12 @@ Exposé/Dashboard keys, which drive the view cycle above. It reads `/dev/input`
 directly and writes `/sys/class/backlight`, so it runs as root and drops to the
 desktop user to talk to tmux.
 
+The idle timeout is 30 minutes on battery and 60 on AC (`ExecStart` in the
+unit). Anything that writes text without touching a keyboard — the m5assistant
+dictation types straight into the tmux buffer with `send-keys` — counts as
+activity by touching `$XDG_RUNTIME_DIR/specialkeysd-wake`; the daemon only
+looks at the mtime and wakes the screen within five seconds.
+
 Keys must be handled in exactly one place. Binding one of them in the
 compositor as well means two actions per press — the comments in `sway.config`
 record both times that happened, once for brightness and once for Exposé.
